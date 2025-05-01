@@ -1,16 +1,30 @@
-from flask import Flask
+from flask import Flask, request, jsonify
+from app.config import Config
+from app.api.whatsapp.webhook import handle_webhook
+from app.utils.logger import get_logger
 from app.api.whatsapp.webhook import whatsapp_webhook_blueprint
 from app.api.whatsapp.send_message import send_message_blueprint
 
 app = Flask(__name__)
+app.config.from_object(Config)
+logger = get_logger()
 
-# Register blueprints
-app.register_blueprint(whatsapp_webhook_blueprint, url_prefix="/whatsapp")
-app.register_blueprint(send_message_blueprint, url_prefix="/send")
+@app.route('/whatsapp/webhook', methods=['GET', 'POST'])
+def whatsapp_webhook():
+    if request.method == 'GET':
+        mode = request.args.get('hub.mode')
+        token = request.args.get('hub.verify_token')
+        challenge = request.args.get('hub.challenge')
 
-@app.route('/')
-def index():
-    return "ReplyMate AI is running 🚀", 200
+        if mode == 'subscribe' and token == Config.VERIFY_TOKEN:
+            logger.info("Webhook verified")
+            return challenge, 200
+        else:
+            logger.warning("Webhook verification failed")
+            return 'Verification failed', 403
 
-if __name__ == "__main__":
-    app.run(debug=True, port=8000)
+    if request.method == 'POST':
+        return handle_webhook(request)
+
+if __name__ == '__main__':
+    app.run(port=8000)

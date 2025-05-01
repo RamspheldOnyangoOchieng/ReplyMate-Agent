@@ -29,3 +29,4 @@ def send_message():
     )
 
     return jsonify(response.json()), response.status_code
+# This code defines a Flask blueprint for sending messages via WhatsApp using the WhatsApp Business API.

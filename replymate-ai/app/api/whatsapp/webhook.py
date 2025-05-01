@@ -1,25 +1,33 @@
-from flask import Blueprint, request
-import os
+from flask import Blueprint, request, jsonify
+from app.services.ai_reply_engine import generate_ai_reply
+from app.api.whatsapp.send_message import send_message
+from app.utils.logger import get_logger
 
 whatsapp_webhook_blueprint = Blueprint("whatsapp_webhook", __name__)
+logger = get_logger()
 
-VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
+@whatsapp_webhook_blueprint.route("/webhook", methods=["POST"])
+def handle_webhook():
+    data = request.get_json()
+    logger.info(f"Incoming webhook data: {data}")
 
-@whatsapp_webhook_blueprint.route("/webhook", methods=["GET", "POST"])
-def webhook():
-    if request.method == "GET":
-        mode = request.args.get("hub.mode")
-        token = request.args.get("hub.verify_token")
-        challenge = request.args.get("hub.challenge")
+    try:
+        for entry in data.get('entry', []):
+            for change in entry.get('changes', []):
+                value = change['value']
+                messages = value.get('messages')
+                if messages:
+                    msg = messages[0]
+                    sender = msg['from']
+                    text = msg['text']['body']
 
-        if mode == "subscribe" and token == VERIFY_TOKEN:
-            return challenge, 200
-        else:
-            return "Forbidden", 403
+                    # Generate AI response
+                    reply = generate_ai_reply(text)
+                    
+                    
+                    send_message(to=sender, message=reply)
 
-    if request.method == "POST":
-        data = request.get_json()
-        print("Received message:", data)
-        return "EVENT_RECEIVED", 200
-
-    return "Method not allowed", 405
+        return jsonify({"status": "success"}), 200
+    except Exception as e:
+        logger.error(f"Error in webhook: {str(e)}")
+        return jsonify({"error": "webhook processing failed"}), 500
