@@ -7,6 +7,10 @@ app = Flask(__name__)
 app.config.from_object(Config)
 logger = get_logger()
 
+@app.route('/')
+def index():
+    return 'ReplyMate WhatsApp Webhook is running 🚀', 200
+
 @app.route('/whatsapp/webhook', methods=['GET', 'POST'])
 def whatsapp_webhook():
     if request.method == 'GET':
